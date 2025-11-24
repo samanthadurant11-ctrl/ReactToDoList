@@ -48,7 +48,6 @@ export const ToDoListApp = () => {
 
   const sensors = useSensors(useSensor(PointerSensor));
 
-  // Save to localStorage whenever toDo or done changes
   useEffect(() => {
     localStorage.setItem(
       "todoData",
@@ -57,11 +56,12 @@ export const ToDoListApp = () => {
   }, [toDo, done]);
 
   const addTodo = () => {
-    if (newTodo.trim() === "") return;
+    const trimmed = newTodo.trim();
+    if (trimmed.length < 3 || trimmed.length > 100) return;
 
     const newToDoItem: ToDoItem = {
       id: Date.now().toString(),
-      text: newTodo.trim(),
+      text: trimmed,
     };
 
     setToDo((prevToDos) => [...prevToDos, newToDoItem]);
@@ -69,59 +69,49 @@ export const ToDoListApp = () => {
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
+    const { active, over, delta } = event;
+
+    if (!over || active.id === over.id) return;
 
     const activeId = active.id as string;
-    const overId = over?.id as string;
+    const overId = over.id as string;
 
-   
-    const findColumn = (id: string): "toDo" | "done" | null => {
-      if (toDo.find((t) => t.id === id)) return "toDo";
-      if (done.find((t) => t.id === id)) return "done";
-      return null;
-    };
+    const fromColumn = toDo.some((t) => t.id === activeId) ? "toDo" : "done";
+    let toColumn = toDo.some((t) => t.id === overId) ? "toDo" : "done";
 
-    const fromColumn = findColumn(activeId);
-    const toColumn = findColumn(overId!);
+    // Detect column based on drag distance
+    if (Math.abs(delta.x) > 50) {
+      toColumn = delta.x > 0 ? "done" : "toDo";
+    }
 
-    if (!fromColumn || !toColumn) return;
-
-    // Reorder within the column
+    // Same column - reorder
     if (fromColumn === toColumn) {
       const list = fromColumn === "toDo" ? toDo : done;
-
       const oldIndex = list.findIndex((item) => item.id === activeId);
       const newIndex = list.findIndex((item) => item.id === overId);
 
-      const reorderedList = arrayMove(list, oldIndex, newIndex);
+      if (oldIndex === -1 || newIndex === -1) return;
 
-      if (fromColumn === "toDo") {
-        setToDo(reorderedList);
-      } else {
-        setDone(reorderedList);
-      }
+      const reorderedList = arrayMove(list, oldIndex, newIndex);
+      fromColumn === "toDo" ? setToDo(reorderedList) : setDone(reorderedList);
       return;
     }
 
-    // Move between columns
-    if (fromColumn !== toColumn) {
-      let fromList = [... (fromColumn === "toDo" ? toDo : done)];
-      let toList = [... (toColumn === "toDo" ? toDo : done)];
+    // Different columns - move item
+    const movedItem = (fromColumn === "toDo" ? toDo : done).find((i) => i.id === activeId);
+    if (!movedItem) return;
 
-      const itemIndex = fromList.findIndex((i) => i.id === activeId);
-      if (itemIndex === -1) return;
+    const newTodoList = fromColumn === "toDo" ? toDo.filter((i) => i.id !== activeId) : [...toDo];
+    const newDoneList = fromColumn === "done" ? done.filter((i) => i.id !== activeId) : [...done];
 
-      const [moved] = fromList.splice(itemIndex, 1);
-      toList.unshift(moved);
-
-      if (fromColumn === "toDo") {
-        setToDo(fromList);
-        setDone(toList);
-      } else {
-        setDone(fromList);
-        setToDo(toList);
-      }
+    if (toColumn === "toDo") {
+      newTodoList.push(movedItem);
+    } else {
+      newDoneList.push(movedItem);
     }
+
+    setToDo(newTodoList);
+    setDone(newDoneList);
   }
 
   const updateNotes = (id: string, notes: string) => {
@@ -137,18 +127,37 @@ export const ToDoListApp = () => {
     );
   }
 
+  const updateText = (id: string, newText: string) => {
+    setToDo((prevToDos) =>
+      prevToDos.map((item) =>
+        item.id === id ? { ...item, text: newText } : item
+      )
+    );
+    setDone((prevDone) =>
+      prevDone.map((item) =>
+        item.id === id ? { ...item, text: newText } : item
+      )
+    );
+  }
+
+  const handleDelete = (id: string) => {
+    setToDo((prevToDos) => prevToDos.filter((item) => item.id !== id));
+    setDone((prevDone) => prevDone.filter((item) => item.id !== id));
+  }
+
   return (
    <Styled.Container>
     <Styled.Title>To-Do List</Styled.Title>
 
     <Styled.AddRow>
       <Styled.Input 
-        placeholder="Add new task"
+        placeholder="Add new task (3-100 characters)"
         value={newTodo}
         onChange={(e) => setNewTodo(e.target.value)}
         onKeyDown={(e) => e.key === 'Enter' && addTodo()}
+        maxLength={100}
       />
-      <Styled.Button onClick={addTodo}>Add</Styled.Button>
+      <Styled.Button onClick={addTodo} disabled={newTodo.trim().length < 3 || newTodo.trim().length > 100}>Add</Styled.Button>
     </Styled.AddRow>
 
     <DndContext
@@ -157,23 +166,21 @@ export const ToDoListApp = () => {
       onDragEnd={handleDragEnd}
     >
       <Styled.Columns>
-        <Styled.Column>
-          <Styled.ColumnTitle>To Do ({toDo.length})</Styled.ColumnTitle>
-          <SortableContext items={toDo.map((item) => item.id)} strategy={verticalListSortingStrategy}>
+        <SortableContext items={[...toDo.map((item) => item.id), ...done.map((item) => item.id)]} strategy={verticalListSortingStrategy}>
+          <Styled.Column>
+            <Styled.ColumnTitle>To Do ({toDo.length})</Styled.ColumnTitle>
             {toDo.map((item) => (
-              <ToDoListItem key={item.id} id={item.id} text={item.text} done={false} notes={item.notes} onUpdateNotes={updateNotes} />
+              <ToDoListItem key={item.id} id={item.id} text={item.text} done={false} notes={item.notes} onUpdateNotes={updateNotes} onDelete={handleDelete} onUpdateText={updateText} />
             ))}
-          </SortableContext>
-        </Styled.Column>
+          </Styled.Column>
 
-        <Styled.Column>
-          <Styled.ColumnTitle>Done ({done.length})</Styled.ColumnTitle>
-          <SortableContext items={done.map((item) => item.id)} strategy={verticalListSortingStrategy}>
+          <Styled.Column>
+            <Styled.ColumnTitle>Done ({done.length})</Styled.ColumnTitle>
             {done.map((item) => (
-              <ToDoListItem key={item.id} id={item.id} text={item.text} done={true} notes={item.notes} onUpdateNotes={updateNotes} />
+              <ToDoListItem key={item.id} id={item.id} text={item.text} done={true} notes={item.notes} onUpdateNotes={updateNotes} onDelete={handleDelete} onUpdateText={updateText} />
             ))}
-          </SortableContext>
-        </Styled.Column>
+          </Styled.Column>
+        </SortableContext>
       </Styled.Columns>
     </DndContext>
    </Styled.Container>

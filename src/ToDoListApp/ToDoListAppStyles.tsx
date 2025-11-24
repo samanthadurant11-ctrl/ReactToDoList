@@ -7,6 +7,7 @@ export const Container = styled.div`
   padding: 24px;
   background-color: ${({ theme }) => theme.colors.bg};
   font-family: ${({ theme }) => theme.fonts.body};
+  border-radius: ${({ theme }) => theme.radii.md};
 `;
 
 export const Title = styled.h1`

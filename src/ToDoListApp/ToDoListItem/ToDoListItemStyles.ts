@@ -1,6 +1,6 @@
 import { styled } from "styled-components";
 
-export const ItemContainer = styled.div<{ $done: Boolean }>`
+export const ItemContainer = styled.div<{ $done: boolean }>`
   padding: 14px;
   background: ${({ $done, theme }) => ($done ? "#F0F0F5" : theme.colors.card)};
   border-radius: ${({ theme }) => theme.radii.sm};
@@ -8,7 +8,6 @@ export const ItemContainer = styled.div<{ $done: Boolean }>`
   margin-bottom: 12px;
   cursor: grab;
   opacity: ${({ $done }) => ($done ? 0.6 : 1)};
-  text-decoration: ${({ $done }) => ($done ? "line-through" : "none")};
   box-shadow: ${({ theme }) => theme.shadows.card};
   transition: 0.2s ease;
   font-size: 15px;
@@ -24,9 +23,27 @@ export const ItemContainer = styled.div<{ $done: Boolean }>`
   }
 `;
 
-export const Text = styled.div`
+export const Text = styled.div<{ $done: boolean }>`
  font-size: 15px;
  color: ${({ theme }) => theme.colors.text};
+   text-decoration: ${({ $done }) => ($done ? "line-through" : "none")};
+`;
+
+export const EditInput = styled.input`
+  font-size: 15px;
+  color: ${({ theme }) => theme.colors.text};
+  border: 1px solid ${({ theme }) => theme.colors.accent};
+  border-radius: 4px;
+  padding: 6px 8px;
+  flex: 1;
+  font-family: inherit;
+  background: white;
+
+  &:focus {
+    outline: none;
+    border-color: ${({ theme }) => theme.colors.accentHover};
+    box-shadow: 0 0 0 2px ${({ theme }) => theme.colors.accent}20;
+  }
 `;
 
 export const NotesButton = styled.button`
@@ -70,13 +87,13 @@ export const NotesTextarea = styled.textarea`
   width: 100%;
   min-height: 70px;
   border-radius: ${({ theme }) => theme.radii.sm};
-  border: 1px solid ${({ theme }) => theme.colors.border};
   padding: 10px;
   font-size: 14px;
   resize: vertical;
   margin-bottom: 8px;
   font-family: inherit;
   box-sizing: border-box;
+  outline: none;
 `;
 
 export const SaveButton = styled.button`
@@ -99,3 +116,21 @@ export const NotesTextAndButtonContainer = styled.div`
   align-items: center;
   width: 100%;
   `;
+
+  export const IconButton = styled.button`
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  font-size: 16px;
+  color: ${({ theme }) => theme.colors.subtle};
+
+  &:hover {
+    color: ${({ theme }) => theme.colors.accent};
+  }
+`;
+
+export const ButtonsContainer = styled.div`
+  display: flex;
+  gap: 8px;
+`;
