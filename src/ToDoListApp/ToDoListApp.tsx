@@ -71,20 +71,34 @@ export const ToDoListApp = () => {
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over, delta } = event;
 
-    if (!over || active.id === over.id) return;
+    if (!over) return;
 
     const activeId = active.id as string;
     const overId = over.id as string;
 
-    const fromColumn = toDo.some((t) => t.id === activeId) ? "toDo" : "done";
-    let toColumn = toDo.some((t) => t.id === overId) ? "toDo" : "done";
+    // this logic handles the empty column case
+    // Don't move if dropping on itself
+    // use delta x to determine right or left movement when there is no list for an item to drop into
+    if (activeId === overId) return;
 
-    // Detect column based on drag distance
+    const fromColumn = toDo.some((t) => t.id === activeId) ? "toDo" : "done";
+    
+    let toColumn: "toDo" | "done" = fromColumn;
+    
     if (Math.abs(delta.x) > 50) {
       toColumn = delta.x > 0 ? "done" : "toDo";
+    } else {
+      const overInToDo = toDo.some((t) => t.id === overId);
+      const overInDone = done.some((t) => t.id === overId);
+
+      if (overInToDo) {
+        toColumn = "toDo";
+      } else if (overInDone) {
+        toColumn = "done";
+      }
     }
 
-    // Same column - reorder
+    // Reorder within same column
     if (fromColumn === toColumn) {
       const list = fromColumn === "toDo" ? toDo : done;
       const oldIndex = list.findIndex((item) => item.id === activeId);
@@ -97,7 +111,7 @@ export const ToDoListApp = () => {
       return;
     }
 
-    // Different columns - move item
+    // Move between columns
     const movedItem = (fromColumn === "toDo" ? toDo : done).find((i) => i.id === activeId);
     if (!movedItem) return;
 
