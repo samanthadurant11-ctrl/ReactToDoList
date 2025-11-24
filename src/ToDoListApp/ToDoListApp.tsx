@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 
-import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent, useDroppable } from "@dnd-kit/core";
 
 import { verticalListSortingStrategy, arrayMove, SortableContext } from "@dnd-kit/sortable";
 
@@ -13,6 +13,38 @@ export interface ToDoItem {
   text: string;
   notes?: string
 }
+
+interface DroppableColumnProps {
+  id: string;
+  title: string;
+  items: ToDoItem[];
+  isDone: boolean;
+  onUpdateNotes: (id: string, notes: string) => void;
+  onDelete: (id: string) => void;
+  onUpdateText: (id: string, text: string) => void;
+}
+
+const DroppableColumn: React.FC<DroppableColumnProps> = ({ id, title, items, isDone, onUpdateNotes, onDelete, onUpdateText }) => {
+  const { setNodeRef } = useDroppable({ id });
+  
+  return (
+    <Styled.Column ref={setNodeRef}>
+      <Styled.ColumnTitle>{title}</Styled.ColumnTitle>
+      {items.map((item) => (
+        <ToDoListItem 
+          key={item.id} 
+          id={item.id} 
+          text={item.text} 
+          done={isDone} 
+          notes={item.notes} 
+          onUpdateNotes={onUpdateNotes} 
+          onDelete={onDelete} 
+          onUpdateText={onUpdateText} 
+        />
+      ))}
+    </Styled.Column>
+  );
+};
 
 export const ToDoListApp = () => {
   const [toDo, setToDo] = useState<ToDoItem[]>(() => {
@@ -69,36 +101,26 @@ export const ToDoListApp = () => {
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over, delta } = event;
+    const { active, over } = event;
 
-    if (!over) return;
+    if (!over || active.id === over.id) return;
 
     const activeId = active.id as string;
     const overId = over.id as string;
 
-    // this logic handles the empty column case
-    // Don't move if dropping on itself
-    // use delta x to determine right or left movement when there is no list for an item to drop into
-    if (activeId === overId) return;
-
     const fromColumn = toDo.some((t) => t.id === activeId) ? "toDo" : "done";
+    let toColumn: "toDo" | "done";
     
-    let toColumn: "toDo" | "done" = fromColumn;
-    
-    if (Math.abs(delta.x) > 50) {
-      toColumn = delta.x > 0 ? "done" : "toDo";
+    // Determine target column based on what we're dropping over
+    if (overId === "done-column") {
+      toColumn = "done";
+    } else if (overId === "toDo-column") {
+      toColumn = "toDo";
     } else {
-      const overInToDo = toDo.some((t) => t.id === overId);
-      const overInDone = done.some((t) => t.id === overId);
-
-      if (overInToDo) {
-        toColumn = "toDo";
-      } else if (overInDone) {
-        toColumn = "done";
-      }
+      toColumn = toDo.some((t) => t.id === overId) ? "toDo" : "done";
     }
 
-    // Reorder within same column
+    // move within same column
     if (fromColumn === toColumn) {
       const list = fromColumn === "toDo" ? toDo : done;
       const oldIndex = list.findIndex((item) => item.id === activeId);
@@ -111,7 +133,7 @@ export const ToDoListApp = () => {
       return;
     }
 
-    // Move between columns
+    // Move to different column
     const movedItem = (fromColumn === "toDo" ? toDo : done).find((i) => i.id === activeId);
     if (!movedItem) return;
 
@@ -181,19 +203,24 @@ export const ToDoListApp = () => {
     >
       <Styled.Columns>
         <SortableContext items={[...toDo.map((item) => item.id), ...done.map((item) => item.id)]} strategy={verticalListSortingStrategy}>
-          <Styled.Column>
-            <Styled.ColumnTitle>To Do ({toDo.length})</Styled.ColumnTitle>
-            {toDo.map((item) => (
-              <ToDoListItem key={item.id} id={item.id} text={item.text} done={false} notes={item.notes} onUpdateNotes={updateNotes} onDelete={handleDelete} onUpdateText={updateText} />
-            ))}
-          </Styled.Column>
-
-          <Styled.Column>
-            <Styled.ColumnTitle>Done ({done.length})</Styled.ColumnTitle>
-            {done.map((item) => (
-              <ToDoListItem key={item.id} id={item.id} text={item.text} done={true} notes={item.notes} onUpdateNotes={updateNotes} onDelete={handleDelete} onUpdateText={updateText} />
-            ))}
-          </Styled.Column>
+          <DroppableColumn
+            id="toDo-column"
+            title={`To Do (${toDo.length})`}
+            items={toDo}
+            isDone={false}
+            onUpdateNotes={updateNotes}
+            onDelete={handleDelete}
+            onUpdateText={updateText}
+          />
+          <DroppableColumn
+            id="done-column"
+            title={`Done (${done.length})`}
+            items={done}
+            isDone={true}
+            onUpdateNotes={updateNotes}
+            onDelete={handleDelete}
+            onUpdateText={updateText}
+          />
         </SortableContext>
       </Styled.Columns>
     </DndContext>
